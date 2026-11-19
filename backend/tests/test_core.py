@@ -43,9 +43,22 @@ def test_ports_parsing():
     out = """###sys
 cpus=2
 load=0.1 0.2 0.3
-###cpu
+###t1
+1000.00
+###t2
+1001.00
+###cpu1
 cpu  100 0 100 800 0 0 0 0
+cpu0 50 0 50 400 0 0 0 0
+cpu1 50 0 50 400 0 0 0 0
+###cpu2
 cpu  110 0 110 880 0 0 0 0
+cpu0 60 0 60 440 0 0 0 0
+cpu1 50 0 50 440 0 0 0 0
+###net1
+eth0: 1000 1 0 0 0 0 0 0 2000 1 0 0 0 0 0 0
+###net2
+eth0: 3000 2 0 0 0 0 0 0 2500 2 0 0 0 0 0 0
 ###mem
 MemTotal: 1000 kB
 MemAvailable: 50 kB
@@ -61,7 +74,9 @@ udp UNCONN 0 0 127.0.0.53%lo:53 0.0.0.0:*
     s = parse_output(out)
     assert [(p["port"], p["exposed"]) for p in s["ports"]] == [(22, True), (53, False), (3000, False)]
     assert s["ports"][0]["process"] == "sshd" and s["ports"][2]["process"] == "node"
-    assert s["cpu"]["percent"] == pytest.approx(20.0, abs=0.1)
+    assert s["cpu"]["percent"] == pytest.approx(20.0, abs=0.01) and len(s["cpu"]["per_core"]) == 2
+    assert s["cpu"]["idle"] == pytest.approx(80.0, abs=0.01)
+    assert (s["network"]["rx_rate"], s["network"]["tx_rate"]) == (2000.0, 500.0)
     assert any("Disk /" in a["message"] for a in s["alerts"]) and any("Memory" in a["message"] for a in s["alerts"])
 
 

@@ -1,3 +1,5 @@
+import secrets
+import sys
 from functools import lru_cache
 from pathlib import Path
 
@@ -10,11 +12,12 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="VMM_", env_file=".env", extra="ignore")
 
-    admin_token: str                      # required: bearer token for the UI/API
+    admin_token: str = ""                # login token for the UI/API; auto-generated into data_dir if empty
     secret_key: str = ""                  # Fernet key; auto-generated in data_dir if empty
     data_dir: str = "./data"
     static_dir: str = ""                  # built React app; auto-detected if empty
     poll_interval: int = 60               # seconds between monitoring sweeps
+    live_interval: int = 5                # seconds between samples while a browser is watching the dashboard
     monitor_enabled: bool = True
     ssh_connect_timeout: int = 15
     ssh_command_timeout: int = 60
@@ -34,4 +37,12 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     s = Settings()
     Path(s.data_dir).mkdir(parents=True, exist_ok=True)
+    if not s.admin_token.strip():
+        f = Path(s.data_dir) / ".admin_token"
+        if not f.exists():
+            f.write_text(secrets.token_urlsafe(24))
+            f.chmod(0o600)
+        s.admin_token = f.read_text().strip()
+        print(f"\n  VMM_ADMIN_TOKEN is not set - using the generated login token:\n  {s.admin_token}\n"
+              f"  (stored in {f}; set VMM_ADMIN_TOKEN to choose your own)\n", file=sys.stderr, flush=True)
     return s

@@ -44,6 +44,7 @@ class VM(Base):
     host: Mapped[str] = mapped_column(String(255))
     port: Mapped[int] = mapped_column(default=22)
     conn_enc: Mapped[str] = mapped_column(Text)            # encrypted {"username","key"}; the secret code lives here
+    instabox_id: Mapped[str | None] = mapped_column(String(100), nullable=True)   # linked InstaBox machine id
     tags: Mapped[list] = mapped_column(JSON, default=list)
     notes: Mapped[str] = mapped_column(Text, default="")
     enabled: Mapped[bool] = mapped_column(default=True)
@@ -73,3 +74,10 @@ class CommandRun(Base):
     ts: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
     command: Mapped[str] = mapped_column(Text)
     results: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class Setting(Base):
+    """Small key/value store (secrets are stored encrypted by settings_store)."""
+    __tablename__ = "settings"
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)

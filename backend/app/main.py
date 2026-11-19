@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -9,8 +8,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .db import Base, engine
-from .monitor import monitor_loop
-from .routes import commands, instabox, vms
+from .workers import manager
+from .routes import commands, events, files, files_ws, instabox, terminal, vms
 from .security import require_auth
 from .ssh import get_pool
 
@@ -21,11 +20,13 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(_: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    task = asyncio.create_task(monitor_loop()) if get_settings().monitor_enabled else None
+        cols = {r[1] for r in (await conn.exec_driver_sql("PRAGMA table_info(vms)")).fetchall()}
+        if "instabox_id" not in cols:                     # tiny in-place migration for databases from v1
+            await conn.exec_driver_sql("ALTER TABLE vms ADD COLUMN instabox_id VARCHAR(100)")
+    if get_settings().monitor_enabled:
+        await manager.start_all()
     yield
-    if task:
-        task.cancel()
-        await asyncio.gather(task, return_exceptions=True)
+    await manager.stop_all()
     await get_pool().close_all()
     await engine.dispose()
 
@@ -47,7 +48,7 @@ async def auth_check():
     return {"ok": True}
 
 
-for r in (vms.router, commands.router, instabox.router):
+for r in (vms.router, commands.router, instabox.router, files.router, terminal.router, events.router, files_ws.router):
     app.include_router(r)
 
 _static = Path(s.static_dir) if s.static_dir else Path(__file__).resolve().parents[2] / "frontend" / "dist"

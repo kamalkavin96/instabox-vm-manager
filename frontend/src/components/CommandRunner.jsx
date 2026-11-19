@@ -1,19 +1,15 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Play } from "lucide-react";
 import { api } from "../api";
-import { ErrorBox } from "./ui";
+import { fullTime } from "../format";
+import { Btn, ErrorBox, Card, StatusBadge } from "./ui";
 
 const SNIPPETS = [
-  ["Disk usage", "df -hT -x tmpfs -x devtmpfs"],
-  ["Memory", "free -h"],
-  ["Uptime & load", "uptime"],
-  ["Top CPU", "ps -eo pid,user,pcpu,pmem,comm --sort=-pcpu | head -10"],
-  ["Listening ports", "ss -tulnp"],
-  ["Failed services", "systemctl --failed --no-pager"],
-  ["Recent errors", "journalctl -p err -n 30 --no-pager"],
-  ["Docker ps", "docker ps -a"],
-  ["Logged-in users", "who"],
-  ["Update packages", "apt-get update && apt-get -y upgrade"],
+  ["Disk usage", "df -hT -x tmpfs -x devtmpfs"], ["Memory", "free -h"], ["Uptime & load", "uptime"],
+  ["Top CPU", "ps -eo pid,user,pcpu,pmem,comm --sort=-pcpu | head -10"], ["Listening ports", "ss -tulnp"],
+  ["Failed services", "systemctl --failed --no-pager"], ["Recent errors", "journalctl -p err -n 30 --no-pager"],
+  ["Docker ps", "docker ps -a"], ["Logged-in users", "who"], ["Update packages", "apt-get update && apt-get -y upgrade"],
 ];
 
 export default function CommandRunner({ vms, fixed }) {
@@ -30,52 +26,42 @@ export default function CommandRunner({ vms, fixed }) {
   return (
     <div className="stack">
       {!fixed && (
-        <div className="card">
-          <div className="row between">
-            <strong>Targets ({sel.size}/{vms.length})</strong>
-            <span>
-              <button className="ghost" onClick={() => setSel(new Set(vms.map((v) => v.id)))}>All</button>
-              <button className="ghost" onClick={() => setSel(new Set())}>None</button>
-            </span>
-          </div>
+        <Card title={`Targets (${sel.size}/${vms.length})`} actions={<>
+          <button className="btn sm" onClick={() => setSel(new Set(vms.map((v) => v.id)))}>All</button>
+          <button className="btn sm" onClick={() => setSel(new Set())}>None</button></>}>
           <div className="checks">
             {vms.map((v) => (
-              <label key={v.id} className="check">
-                <input type="checkbox" checked={sel.has(v.id)} onChange={() => toggle(v.id)} /> {v.name}
-                <span className={`dot ${v.status}`} />
-              </label>
+              <label key={v.id} className="check"><input type="checkbox" checked={sel.has(v.id)} onChange={() => toggle(v.id)} /> {v.name} <StatusBadge status={v.status} enabled={v.enabled} /></label>
             ))}
           </div>
-        </div>
+        </Card>
       )}
-      <div className="card">
-        <div className="snippets">
-          {SNIPPETS.map(([l, c]) => <button key={l} className="ghost small" onClick={() => setCmd(c)}>{l}</button>)}
-        </div>
+      <Card>
+        <div className="snippets">{SNIPPETS.map(([l, c]) => <button key={l} className="btn sm" onClick={() => setCmd(c)}>{l}</button>)}</div>
         <textarea rows={3} className="mono" value={cmd} onChange={(e) => setCmd(e.target.value)}
           placeholder="Command to run (bash)…  Ctrl+Enter to run"
           onKeyDown={(e) => (e.ctrlKey || e.metaKey) && e.key === "Enter" && run()} />
-        <div className="row between">
+        <div className="row between" style={{ marginTop: 10 }}>
           <label className="inline">Timeout (s)
-            <input type="number" min="1" max="900" value={timeout} onChange={(e) => setTimeoutS(e.target.value)} style={{ width: 80 }} />
+            <input type="number" min="1" max="900" value={timeout} onChange={(e) => setTimeoutS(e.target.value)} style={{ width: 90 }} />
           </label>
-          <button disabled={!cmd.trim() || !sel.size || m.isPending} onClick={run}>
+          <Btn className="primary" icon={Play} busy={m.isPending} disabled={!cmd.trim() || !sel.size} onClick={run}>
             {m.isPending ? "Running…" : `Run on ${sel.size} VM${sel.size === 1 ? "" : "s"}`}
-          </button>
+          </Btn>
         </div>
         <ErrorBox error={m.error} />
-      </div>
+        <p className="muted small" style={{ marginBottom: 0 }}>For interactive programs (htop, btop, mc, vim) use the Terminals page.</p>
+      </Card>
       {m.data && <Results run={m.data} />}
       {!m.data && hist.data?.length > 0 && (
-        <div className="card">
-          <strong>Recent commands</strong>
+        <Card title="Recent commands">
           {hist.data.slice(0, 8).map((h) => (
             <div key={h.id} className="hist" onClick={() => setCmd(h.command)} title="Click to reuse">
               <code>{h.command.length > 90 ? h.command.slice(0, 90) + "…" : h.command}</code>
-              <span className="muted">{h.results.length} VMs · {new Date(h.ts).toLocaleString()}</span>
+              <span className="muted small">{h.results.length} VMs · {fullTime(h.ts)}</span>
             </div>
           ))}
-        </div>
+        </Card>
       )}
     </div>
   );
@@ -84,19 +70,20 @@ export default function CommandRunner({ vms, fixed }) {
 function Results({ run }) {
   return (
     <div className="stack">
+      <div className="muted small">Executed {fullTime(run.ts)}</div>
       {run.results.map((r) => {
         const ok = !r.error && r.exit_code === 0;
         return (
-          <div key={r.vm_id} className={`card result ${ok ? "" : "failed"}`}>
+          <section key={r.vm_id} className={`card result ${ok ? "" : "failed"}`}>
             <div className="row between">
               <strong>{r.name}</strong>
-              <span className="muted">{r.error ? "error" : `exit ${r.exit_code}`} · {r.duration}s</span>
+              <span className="muted small">{r.error ? "error" : `exit ${r.exit_code}`} · {r.duration}s</span>
             </div>
-            {r.error && <div className="error">{r.error}</div>}
+            {r.error && <div className="alert error">{r.error}</div>}
             {r.stdout && <pre>{r.stdout}</pre>}
             {r.stderr && <pre className="stderr">{r.stderr}</pre>}
             {!r.error && !r.stdout && !r.stderr && <span className="muted">(no output)</span>}
-          </div>
+          </section>
         );
       })}
     </div>

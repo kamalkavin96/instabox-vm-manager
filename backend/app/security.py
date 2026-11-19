@@ -33,3 +33,13 @@ def require_auth(authorization: str = Header(default="")) -> None:
     token = authorization.removeprefix("Bearer ").strip()
     if not token or not secrets.compare_digest(token, get_settings().admin_token):
         raise HTTPException(401, "Invalid or missing token")
+
+
+def token_ok(token: str) -> bool:
+    return bool(token) and secrets.compare_digest(token, get_settings().admin_token)
+
+
+def require_auth_flex(authorization: str = Header(default=""), token: str = "") -> None:
+    """Header auth, or ?token= for browser downloads that cannot send headers."""
+    if not (token_ok(authorization.removeprefix("Bearer ").strip()) or token_ok(token)):
+        raise HTTPException(401, "Invalid or missing token")

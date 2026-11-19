@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import { ErrorBox, Modal } from "./ui";
+import { Btn, ErrorBox, Modal } from "./ui";
 
 export default function AddVM({ onClose }) {
   const qc = useQueryClient();
@@ -20,18 +20,18 @@ export default function AddVM({ onClose }) {
       <label>SSH command (as shown by InstaBox)
         <input value={f.ssh_command} onChange={set("ssh_command")} placeholder="ssh <secret-code>@ssh.instabox.sh" className="mono" />
       </label>
-      <label>Private key (optional, only if your command needs one)
+      <label>Private key (optional)
         <textarea rows={3} value={f.private_key} onChange={set("private_key")} className="mono" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" />
       </label>
       <label>Tags (comma separated)<input value={f.tags} onChange={set("tags")} placeholder="prod, web" /></label>
       <label>Notes<input value={f.notes} onChange={set("notes")} /></label>
-      <p className="hint">The connection is tested before saving. The secret code is encrypted at rest and never shown again.</p>
+      <p className="muted small">The connection is tested before saving. The secret code is encrypted at rest and never shown again.</p>
       <ErrorBox error={m.error} />
-      <div className="row end">
-        <button className="ghost" onClick={onClose}>Cancel</button>
-        <button disabled={!f.name.trim() || !f.ssh_command.trim() || m.isPending} onClick={() => m.mutate()}>
+      <div className="row" style={{ justifyContent: "flex-end" }}>
+        <button className="btn" onClick={onClose}>Cancel</button>
+        <Btn className="primary" busy={m.isPending} disabled={!f.name.trim() || !f.ssh_command.trim()} onClick={() => m.mutate()}>
           {m.isPending ? "Connecting…" : "Add & test"}
-        </button>
+        </Btn>
       </div>
     </Modal>
   );

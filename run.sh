@@ -9,9 +9,9 @@ PY=$(command -v python3 || command -v python || true)
 . backend/.venv/bin/activate
 pip install -q -r backend/requirements.txt
 
-if [ ! -d frontend/dist ]; then
+if [ ! -f frontend/dist/.ui-v3 ]; then
   if command -v npm >/dev/null 2>&1; then
-    (cd frontend && npm install --no-audit --no-fund && npm run build)
+    (cd frontend && npm install --no-audit --no-fund && npm run build && touch dist/.ui-v3)
   else
     echo "Node.js not found - skipping UI build (API only). Install Node 18+ and rerun for the web UI."
   fi

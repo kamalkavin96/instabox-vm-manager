@@ -26,7 +26,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist frontend\dist (
+if not exist frontend\dist\.ui-v3 (
   where npm >nul 2>nul
   if errorlevel 1 (
     echo Node.js not found - skipping UI build. Install Node 18+ and rerun for the web UI.
@@ -34,6 +34,7 @@ if not exist frontend\dist (
     pushd frontend
     call npm install --no-audit --no-fund
     call npm run build
+    echo ok> dist\.ui-v3
     popd
   )
 )

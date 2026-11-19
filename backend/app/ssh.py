@@ -118,23 +118,36 @@ class SSHPool:
             self._sem = asyncio.Semaphore(get_settings().max_concurrency)
         return self._sem
 
+    @staticmethod
+    async def open_connection(t: Target):
+        """Open a new, uncached SSH connection (used for interactive terminals)."""
+        s = get_settings()
+        opts = dict(
+            host=t.host, port=t.port, username=t.username, password=None,
+            known_hosts=s.known_hosts or None, connect_timeout=s.ssh_connect_timeout,
+            keepalive_interval=30, keepalive_count_max=3,
+        )
+        if t.key:
+            opts["client_keys"] = [asyncssh.import_private_key(t.key)]
+        return await asyncssh.connect(**opts)
+
     async def _get(self, key, t: Target):
         lock = self._locks.setdefault(key, asyncio.Lock())
         async with lock:
             conn = self._conns.get(key)
             if conn is not None and not conn.is_closed():
                 return conn
-            s = get_settings()
-            opts = dict(
-                host=t.host, port=t.port, username=t.username, password=None,
-                known_hosts=s.known_hosts or None, connect_timeout=s.ssh_connect_timeout,
-                keepalive_interval=30, keepalive_count_max=3,
-            )
-            if t.key:
-                opts["client_keys"] = [asyncssh.import_private_key(t.key)]
-            conn = await asyncssh.connect(**opts)
+            conn = await self.open_connection(t)
             self._conns[key] = conn
             return conn
+
+    async def connection(self, key, t: Target):
+        """Shared, cached connection for SFTP and similar short channel use (one reconnect attempt)."""
+        try:
+            return await self._get(key, t)
+        except (asyncssh.Error, OSError, asyncio.TimeoutError):
+            await self.drop(key)
+            return await self._get(key, t)
 
     async def drop(self, key) -> None:
         conn = self._conns.pop(key, None)

@@ -1,0 +1,15 @@
+{
+  "maxEffortLevel": "medium",
+  "permissions": { "defaultMode": "acceptEdits" },
+  "env": {
+    "ANTHROPIC_BASE_URL": "",
+    "ANTHROPIC_AUTH_TOKEN": "",
+    "ANTHROPIC_API_KEY": "",
+    "ANTHROPIC_MODEL": "my-combo-free",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "my-combo-free",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "my-combo-free",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "my-combo-free",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "131072",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  }
+}
