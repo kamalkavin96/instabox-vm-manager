@@ -1,0 +1,22 @@
+{"properties": [
+  {
+    "name": "instabox.base-url",
+    "type": "java.lang.String",
+    "description": "A description for 'instabox.base-url'"
+  },
+  {
+    "name": "instabox.api.base-url",
+    "type": "java.lang.String",
+    "description": "A description for 'instabox.api.base-url'"
+  },
+  {
+    "name": "instabox.api.timeout.connect",
+    "type": "java.lang.String",
+    "description": "A description for 'instabox.api.timeout.connect'"
+  },
+  {
+    "name": "instabox.api.timeout.read",
+    "type": "java.lang.String",
+    "description": "A description for 'instabox.api.timeout.read'"
+  }
+]}
