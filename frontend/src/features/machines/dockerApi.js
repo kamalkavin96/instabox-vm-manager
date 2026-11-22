@@ -57,3 +57,8 @@ export const executeDockerAction = async (machineId, payload) => {
     const res = await apiClient.post(`/machines/${enc(machineId)}/docker/action`, payload);
     return res.data;
 };
+
+export const syncDockerSnapshot = async (machineId) => {
+    const res = await apiClient.post(`/machines/${enc(machineId)}/docker/sync`);
+    return res.data;
+};

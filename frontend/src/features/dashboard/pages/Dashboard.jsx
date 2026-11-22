@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     Box,
     Grid,
@@ -21,34 +22,18 @@ import {
     Storage,
     Speed,
     ArrowForward,
+    SettingsEthernet,
+    Key,
+    FolderShared,
+    Inventory2,
+    Layers,
+    Album,
+    Hub,
 } from "@mui/icons-material";
 
 import PageHeader from "../../../components/common/PageHeader";
 import { useAppSelector } from "../../../hooks/redux";
-
-const machines = [
-    {
-        name: "production-api",
-        ip: "10.0.0.180",
-        status: "Running",
-        cpu: 32,
-        memory: 64,
-    },
-    {
-        name: "database-server",
-        ip: "10.0.0.184",
-        status: "Running",
-        cpu: 48,
-        memory: 72,
-    },
-    {
-        name: "staging-server",
-        ip: "10.0.0.241",
-        status: "Stopped",
-        cpu: 0,
-        memory: 0,
-    },
-];
+import { fetchDashboardOverview } from "../dashboardApi";
 
 const getJiraDashboardTokens = (isDark) => ({
     canvasBg: isDark ? "#1D2125" : "#F7F8F9",
@@ -64,7 +49,6 @@ const getJiraDashboardTokens = (isDark) => ({
     brandHover: isDark ? "#85B8FF" : "#0055CC",
     brandBg: isDark ? "#1C2B41" : "#E9F2FF",
     brandBorder: isDark ? "#2C4870" : "#CCE0FF",
-    // Semantic Accents
     blue: isDark
         ? { main: "#579DFF", bg: "#1C2B41", text: "#85B8FF" }
         : { main: "#1868DB", bg: "#E9F2FF", text: "#0055CC" },
@@ -91,38 +75,76 @@ const getJiraDashboardTokens = (isDark) => ({
         : "0 4px 8px -2px rgba(9, 30, 66, 0.12), 0 0 1px rgba(9, 30, 66, 0.31)",
 });
 
+const INITIAL_DATA = {
+    kpis: { totalMachines: 0, onlineMachines: 0, offlineMachines: 0, avgCpu: 0 },
+    resources: {
+        memory: { percent: 0, label: "0%", caption: "0% average memory utilization" },
+        storage: { percent: 0, label: "0%", caption: "0% average storage utilization" },
+        cpu: { percent: 0, label: "0%", caption: "Average cluster CPU utilization" },
+    },
+    orgMetrics: {
+        totalPorts: 0,
+        sshConfiguredCount: 0,
+        sftpConfiguredCount: 0,
+        totalContainers: 0,
+        runningContainers: 0,
+        totalImages: 0,
+        totalVolumes: 0,
+        totalNetworks: 0,
+    },
+    machines: [],
+};
+
 export default function Dashboard() {
     const theme = useTheme();
+    const navigate = useNavigate();
     const mode = useAppSelector((state) => state.ui?.theme);
     const isDark = (mode || theme.palette.mode) === "dark";
     const tokens = useMemo(() => getJiraDashboardTokens(isDark), [isDark]);
 
+    const [data, setData] = useState(INITIAL_DATA);
+    const [loading, setLoading] = useState(false);
+
+    const loadDashboard = useCallback(async () => {
+        try {
+            setLoading(true);
+            const overview = await fetchDashboardOverview();
+            setData(overview);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        void loadDashboard();
+    }, [loadDashboard]);
+
     const statCards = [
         {
             title: "Total Machines",
-            value: "8",
+            value: String(data.kpis.totalMachines),
             subtitle: "Registered instances",
             icon: Dns,
             accent: tokens.blue,
         },
         {
             title: "Online Machines",
-            value: "6",
+            value: String(data.kpis.onlineMachines),
             subtitle: "Currently running",
             icon: CheckCircle,
             accent: tokens.green,
         },
         {
             title: "Offline Machines",
-            value: "2",
+            value: String(data.kpis.offlineMachines),
             subtitle: "Currently stopped",
             icon: Cancel,
             accent: tokens.red,
         },
         {
             title: "Average CPU",
-            value: "42%",
-            subtitle: "Across active nodes",
+            value: `${data.kpis.avgCpu}%`,
+            subtitle: "Across registered nodes",
             icon: Memory,
             accent: tokens.orange,
         },
@@ -131,27 +153,79 @@ export default function Dashboard() {
     const resourceCards = [
         {
             title: "Memory Usage",
-            value: "64 GB",
-            percent: 64,
-            caption: "64% of 100 GB allocated",
+            value: data.resources.memory.label,
+            percent: data.resources.memory.percent,
+            caption: data.resources.memory.caption,
             icon: Memory,
             accent: tokens.purple,
         },
         {
             title: "Storage Usage",
-            value: "285 GB",
-            percent: 57,
-            caption: "57% of 500 GB provisioned",
+            value: data.resources.storage.label,
+            percent: data.resources.storage.percent,
+            caption: data.resources.storage.caption,
             icon: Storage,
             accent: tokens.teal,
         },
         {
             title: "CPU Utilization",
-            value: "42%",
-            percent: 42,
-            caption: "Average cluster utilization",
+            value: data.resources.cpu.label,
+            percent: data.resources.cpu.percent,
+            caption: data.resources.cpu.caption,
             icon: Speed,
             accent: tokens.blue,
+        },
+    ];
+
+    const orgBreakdownCards = [
+        {
+            label: "Mapped Ports",
+            value: data.orgMetrics.totalPorts,
+            sub: "Across all VMs",
+            icon: SettingsEthernet,
+            accent: tokens.blue,
+        },
+        {
+            label: "SSH Configs",
+            value: data.orgMetrics.sshConfiguredCount,
+            sub: `of ${data.kpis.totalMachines} VMs`,
+            icon: Key,
+            accent: tokens.green,
+        },
+        {
+            label: "SFTP Configs",
+            value: data.orgMetrics.sftpConfiguredCount,
+            sub: `of ${data.kpis.totalMachines} VMs`,
+            icon: FolderShared,
+            accent: tokens.teal,
+        },
+        {
+            label: "Containers",
+            value: data.orgMetrics.totalContainers,
+            sub: `${data.orgMetrics.runningContainers} running`,
+            icon: Inventory2,
+            accent: tokens.purple,
+        },
+        {
+            label: "Images",
+            value: data.orgMetrics.totalImages,
+            sub: "Cached in DB",
+            icon: Layers,
+            accent: tokens.orange,
+        },
+        {
+            label: "Volumes",
+            value: data.orgMetrics.totalVolumes,
+            sub: "Persistent stores",
+            icon: Album,
+            accent: tokens.blue,
+        },
+        {
+            label: "Networks",
+            value: data.orgMetrics.totalNetworks,
+            sub: "Docker networks",
+            icon: Hub,
+            accent: tokens.green,
         },
     ];
 
@@ -166,11 +240,10 @@ export default function Dashboard() {
                 transition: "background-color 0.2s ease",
             }}
         >
-            {/* Common Jira Page Header */}
             <PageHeader
                 title="Dashboard"
-                subtitle="Overview of your infrastructure, compute nodes, and resource utilization"
-                count={8}
+                subtitle="Organization-wide compute, ports, InstaBox SSH/SFTP, and Docker snapshot metrics"
+                count={data.kpis.totalMachines}
                 countLabel="Machines"
                 countIcon={Dns}
                 tokens={tokens}
@@ -179,6 +252,8 @@ export default function Dashboard() {
                         <Button
                             variant="outlined"
                             startIcon={<Refresh fontSize="small" />}
+                            disabled={loading}
+                            onClick={() => void loadDashboard()}
                             sx={{
                                 borderRadius: "3px",
                                 borderColor: tokens.border,
@@ -195,13 +270,14 @@ export default function Dashboard() {
                                 },
                             }}
                         >
-                            Refresh
+                            {loading ? "Refreshing..." : "Refresh"}
                         </Button>
 
                         <Button
                             variant="contained"
                             startIcon={<Add fontSize="small" />}
                             disableElevation
+                            onClick={() => navigate("/machines")}
                             sx={{
                                 bgcolor: tokens.brandMain,
                                 color: isDark ? "#1D2125" : "#FFFFFF",
@@ -222,13 +298,11 @@ export default function Dashboard() {
                 }
             />
 
-            {/* Main Content */}
             <Box sx={{ px: 3, pt: 2.5, flexGrow: 1 }}>
-                {/* KPI Stat Cards */}
+                {/* Machine KPI Cards */}
                 <Grid container spacing={2}>
                     {statCards.map((stat) => {
                         const Icon = stat.icon;
-
                         return (
                             <Grid key={stat.title} size={{ xs: 12, sm: 6, lg: 3 }}>
                                 <Card
@@ -239,8 +313,7 @@ export default function Dashboard() {
                                         bgcolor: tokens.cardBg,
                                         borderColor: tokens.border,
                                         borderTop: `3px solid ${stat.accent.main}`,
-                                        transition:
-                                            "box-shadow 0.15s ease, border-color 0.15s ease, background-color 0.2s ease",
+                                        transition: "box-shadow 0.15s ease, border-color 0.15s ease",
                                         "&:hover": {
                                             borderColor: tokens.borderHover,
                                             borderTopColor: stat.accent.main,
@@ -249,12 +322,7 @@ export default function Dashboard() {
                                     }}
                                 >
                                     <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-                                        <Stack
-                                            direction="row"
-                                            alignItems="flex-start"
-                                            justifyContent="space-between"
-                                            spacing={1.5}
-                                        >
+                                        <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1.5}>
                                             <Box>
                                                 <Typography
                                                     variant="caption"
@@ -270,7 +338,6 @@ export default function Dashboard() {
                                                 >
                                                     {stat.title}
                                                 </Typography>
-
                                                 <Typography
                                                     variant="h4"
                                                     sx={{
@@ -283,18 +350,10 @@ export default function Dashboard() {
                                                 >
                                                     {stat.value}
                                                 </Typography>
-
-                                                <Typography
-                                                    variant="caption"
-                                                    sx={{
-                                                        color: tokens.textSecondary,
-                                                        fontSize: "0.75rem",
-                                                    }}
-                                                >
+                                                <Typography variant="caption" sx={{ color: tokens.textSecondary, fontSize: "0.75rem" }}>
                                                     {stat.subtitle}
                                                 </Typography>
                                             </Box>
-
                                             <Box
                                                 sx={{
                                                     width: 36,
@@ -323,7 +382,6 @@ export default function Dashboard() {
                 <Grid container spacing={2} sx={{ mt: 0.5 }}>
                     {resourceCards.map((resource) => {
                         const Icon = resource.icon;
-
                         return (
                             <Grid key={resource.title} size={{ xs: 12, md: 4 }}>
                                 <Card
@@ -333,8 +391,7 @@ export default function Dashboard() {
                                         borderRadius: "4px",
                                         bgcolor: tokens.cardBg,
                                         borderColor: tokens.border,
-                                        transition:
-                                            "box-shadow 0.15s ease, border-color 0.15s ease, background-color 0.2s ease",
+                                        transition: "box-shadow 0.15s ease, border-color 0.15s ease",
                                         "&:hover": {
                                             borderColor: tokens.borderHover,
                                             boxShadow: tokens.cardShadowHover,
@@ -342,12 +399,7 @@ export default function Dashboard() {
                                     }}
                                 >
                                     <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-                                        <Stack
-                                            direction="row"
-                                            alignItems="center"
-                                            justifyContent="space-between"
-                                            sx={{ mb: 1.5 }}
-                                        >
+                                        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
                                             <Stack direction="row" alignItems="center" spacing={1}>
                                                 <Box
                                                     sx={{
@@ -363,18 +415,10 @@ export default function Dashboard() {
                                                 >
                                                     <Icon sx={{ fontSize: 16 }} />
                                                 </Box>
-                                                <Typography
-                                                    variant="subtitle2"
-                                                    sx={{
-                                                        fontWeight: 700,
-                                                        color: tokens.textPrimary,
-                                                        fontSize: "0.875rem",
-                                                    }}
-                                                >
+                                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: tokens.textPrimary, fontSize: "0.875rem" }}>
                                                     {resource.title}
                                                 </Typography>
                                             </Stack>
-
                                             <Box
                                                 sx={{
                                                     px: 0.85,
@@ -389,19 +433,9 @@ export default function Dashboard() {
                                                 {resource.percent}%
                                             </Box>
                                         </Stack>
-
-                                        <Typography
-                                            variant="h4"
-                                            sx={{
-                                                fontWeight: 700,
-                                                color: tokens.textPrimary,
-                                                fontSize: "1.5rem",
-                                                mb: 1.5,
-                                            }}
-                                        >
+                                        <Typography variant="h4" sx={{ fontWeight: 700, color: tokens.textPrimary, fontSize: "1.5rem", mb: 1.5 }}>
                                             {resource.value}
                                         </Typography>
-
                                         <LinearProgress
                                             variant="determinate"
                                             value={resource.percent}
@@ -417,14 +451,7 @@ export default function Dashboard() {
                                                 },
                                             }}
                                         />
-
-                                        <Typography
-                                            variant="caption"
-                                            sx={{
-                                                color: tokens.textSecondary,
-                                                fontSize: "0.75rem",
-                                            }}
-                                        >
+                                        <Typography variant="caption" sx={{ color: tokens.textSecondary, fontSize: "0.75rem" }}>
                                             {resource.caption}
                                         </Typography>
                                     </CardContent>
@@ -433,6 +460,86 @@ export default function Dashboard() {
                         );
                     })}
                 </Grid>
+
+                {/* Organization, Port & InstaBox Docker Metrics */}
+                <Card
+                    variant="outlined"
+                    sx={{
+                        mt: 2.5,
+                        borderRadius: "4px",
+                        bgcolor: tokens.cardBg,
+                        borderColor: tokens.border,
+                    }}
+                >
+                    <Box
+                        sx={{
+                            px: 2.5,
+                            py: 1.5,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            borderBottom: `1px solid ${tokens.border}`,
+                        }}
+                    >
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: tokens.textPrimary, fontSize: "0.95rem" }}>
+                            Organization, Ports &amp; InstaBox Inventory
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: tokens.textSubtle, fontFamily: "monospace" }}>
+                            {data.orgMetrics.runningContainers}/{data.orgMetrics.totalContainers} containers running
+                        </Typography>
+                    </Box>
+
+                    <Box sx={{ p: 2 }}>
+                        <Grid container spacing={1.5}>
+                            {orgBreakdownCards.map((item) => {
+                                const Icon = item.icon;
+                                return (
+                                    <Grid key={item.label} size={{ xs: 6, sm: 4, md: 3, lg: 12 / 7 }}>
+                                        <Box
+                                            sx={{
+                                                p: 1.5,
+                                                borderRadius: "4px",
+                                                bgcolor: tokens.subtleSurface,
+                                                border: `1px solid ${tokens.border}`,
+                                                height: "100%",
+                                            }}
+                                        >
+                                            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.75 }}>
+                                                <Typography
+                                                    variant="caption"
+                                                    sx={{
+                                                        color: tokens.textSubtle,
+                                                        fontWeight: 700,
+                                                        fontSize: "0.68rem",
+                                                        textTransform: "uppercase",
+                                                        letterSpacing: "0.03em",
+                                                    }}
+                                                >
+                                                    {item.label}
+                                                </Typography>
+                                                <Icon sx={{ fontSize: 15, color: item.accent.main }} />
+                                            </Stack>
+                                            <Typography
+                                                sx={{
+                                                    fontWeight: 700,
+                                                    fontSize: "1.25rem",
+                                                    color: tokens.textPrimary,
+                                                    lineHeight: 1.2,
+                                                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                                }}
+                                            >
+                                                {item.value}
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: tokens.textSecondary, fontSize: "0.7rem" }}>
+                                                {item.sub}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                );
+                            })}
+                        </Grid>
+                    </Box>
+                </Card>
 
                 {/* Recent Machines List */}
                 <Card
@@ -455,17 +562,9 @@ export default function Dashboard() {
                         }}
                     >
                         <Stack direction="row" alignItems="center" spacing={1}>
-                            <Typography
-                                variant="subtitle1"
-                                sx={{
-                                    fontWeight: 700,
-                                    color: tokens.textPrimary,
-                                    fontSize: "0.95rem",
-                                }}
-                            >
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: tokens.textPrimary, fontSize: "0.95rem" }}>
                                 Recent Machines
                             </Typography>
-
                             <Box
                                 sx={{
                                     px: 0.85,
@@ -478,13 +577,14 @@ export default function Dashboard() {
                                     border: `1px solid ${tokens.brandBorder}`,
                                 }}
                             >
-                                {machines.length}
+                                {data.machines.length}
                             </Box>
                         </Stack>
 
                         <Button
                             size="small"
                             endIcon={<ArrowForward sx={{ fontSize: 14 }} />}
+                            onClick={() => navigate("/machines")}
                             sx={{
                                 borderRadius: "3px",
                                 textTransform: "none",
@@ -502,13 +602,12 @@ export default function Dashboard() {
                     </Box>
 
                     <Box>
-                        {machines.map((machine, index) => {
-                            const isRunning = machine.status === "Running";
-                            const statusStyle = isRunning ? tokens.green : tokens.neutral;
-
+                        {data.machines.slice(0, 5).map((machine, index) => {
+                            const statusStyle = machine.isRunning ? tokens.green : tokens.neutral;
                             return (
-                                <Box key={machine.name}>
+                                <Box key={machine.id ?? machine.name}>
                                     <Box
+                                        onClick={() => machine.id && navigate(`/machines/${machine.id}`)}
                                         sx={{
                                             px: 2.5,
                                             py: 1.5,
@@ -516,6 +615,7 @@ export default function Dashboard() {
                                             alignItems: "center",
                                             justifyContent: "space-between",
                                             gap: 2,
+                                            cursor: machine.id ? "pointer" : "default",
                                             transition: "background-color 0.15s ease",
                                             "&:hover": {
                                                 bgcolor: tokens.hoverSurface,
@@ -528,12 +628,8 @@ export default function Dashboard() {
                                                     width: 34,
                                                     height: 34,
                                                     borderRadius: "4px",
-                                                    bgcolor: isRunning
-                                                        ? tokens.blue.bg
-                                                        : tokens.neutral.bg,
-                                                    color: isRunning
-                                                        ? tokens.blue.main
-                                                        : tokens.neutral.main,
+                                                    bgcolor: machine.isRunning ? tokens.blue.bg : tokens.neutral.bg,
+                                                    color: machine.isRunning ? tokens.blue.main : tokens.neutral.main,
                                                     display: "flex",
                                                     alignItems: "center",
                                                     justifyContent: "center",
@@ -543,22 +639,13 @@ export default function Dashboard() {
                                             </Box>
 
                                             <Box>
-                                                <Typography
-                                                    sx={{
-                                                        fontWeight: 700,
-                                                        fontSize: "0.875rem",
-                                                        color: tokens.textPrimary,
-                                                        lineHeight: 1.3,
-                                                    }}
-                                                >
+                                                <Typography sx={{ fontWeight: 700, fontSize: "0.875rem", color: tokens.textPrimary, lineHeight: 1.3 }}>
                                                     {machine.name}
                                                 </Typography>
-
                                                 <Typography
                                                     variant="caption"
                                                     sx={{
-                                                        fontFamily:
-                                                            "'JetBrains Mono', 'Fira Code', monospace",
+                                                        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                                                         color: tokens.textSubtle,
                                                         fontSize: "0.75rem",
                                                     }}
@@ -568,13 +655,8 @@ export default function Dashboard() {
                                             </Box>
                                         </Stack>
 
-                                        <Stack direction="row" spacing={2} alignItems="center">
-                                            {/* Monospace CPU & Memory Telemetry */}
-                                            <Stack
-                                                direction="row"
-                                                spacing={1}
-                                                sx={{ display: { xs: "none", sm: "flex" } }}
-                                            >
+                                        <Stack direction="row" spacing={1.5} alignItems="center">
+                                            <Stack direction="row" spacing={1} sx={{ display: { xs: "none", sm: "flex" } }}>
                                                 <Box
                                                     sx={{
                                                         px: 1,
@@ -582,18 +664,13 @@ export default function Dashboard() {
                                                         borderRadius: "3px",
                                                         bgcolor: tokens.subtleSurface,
                                                         border: `1px solid ${tokens.border}`,
-                                                        fontFamily:
-                                                            "'JetBrains Mono', 'Fira Code', monospace",
+                                                        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                                                         fontSize: "0.75rem",
                                                         color: tokens.textSecondary,
                                                     }}
                                                 >
-                                                    CPU:{" "}
-                                                    <strong style={{ color: tokens.textPrimary }}>
-                                                        {machine.cpu}%
-                                                    </strong>
+                                                    CPU: <strong style={{ color: tokens.textPrimary }}>{machine.cpu}%</strong>
                                                 </Box>
-
                                                 <Box
                                                     sx={{
                                                         px: 1,
@@ -601,20 +678,43 @@ export default function Dashboard() {
                                                         borderRadius: "3px",
                                                         bgcolor: tokens.subtleSurface,
                                                         border: `1px solid ${tokens.border}`,
-                                                        fontFamily:
-                                                            "'JetBrains Mono', 'Fira Code', monospace",
+                                                        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                                                         fontSize: "0.75rem",
                                                         color: tokens.textSecondary,
                                                     }}
                                                 >
-                                                    MEM:{" "}
-                                                    <strong style={{ color: tokens.textPrimary }}>
-                                                        {machine.memory}%
-                                                    </strong>
+                                                    MEM: <strong style={{ color: tokens.textPrimary }}>{machine.memory}%</strong>
+                                                </Box>
+                                                <Box
+                                                    sx={{
+                                                        px: 1,
+                                                        py: 0.35,
+                                                        borderRadius: "3px",
+                                                        bgcolor: tokens.subtleSurface,
+                                                        border: `1px solid ${tokens.border}`,
+                                                        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                                        fontSize: "0.75rem",
+                                                        color: tokens.textSecondary,
+                                                    }}
+                                                >
+                                                    PORTS: <strong style={{ color: tokens.textPrimary }}>{machine.portsCount}</strong>
+                                                </Box>
+                                                <Box
+                                                    sx={{
+                                                        px: 1,
+                                                        py: 0.35,
+                                                        borderRadius: "3px",
+                                                        bgcolor: tokens.subtleSurface,
+                                                        border: `1px solid ${tokens.border}`,
+                                                        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                                        fontSize: "0.75rem",
+                                                        color: tokens.textSecondary,
+                                                    }}
+                                                >
+                                                    DOCKER: <strong style={{ color: tokens.textPrimary }}>{machine.containersRunning}/{machine.containersTotal}</strong>
                                                 </Box>
                                             </Stack>
 
-                                            {/* Jira Status Lozenge */}
                                             <Box
                                                 sx={{
                                                     px: 1,
@@ -635,12 +735,20 @@ export default function Dashboard() {
                                         </Stack>
                                     </Box>
 
-                                    {index < machines.length - 1 && (
+                                    {index < Math.min(data.machines.length, 5) - 1 && (
                                         <Divider sx={{ borderColor: tokens.border }} />
                                     )}
                                 </Box>
                             );
                         })}
+
+                        {!loading && data.machines.length === 0 && (
+                            <Box sx={{ px: 2.5, py: 4, textAlign: "center" }}>
+                                <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
+                                    No machines registered yet. Click &ldquo;Add machine&rdquo; to get started.
+                                </Typography>
+                            </Box>
+                        )}
                     </Box>
                 </Card>
             </Box>

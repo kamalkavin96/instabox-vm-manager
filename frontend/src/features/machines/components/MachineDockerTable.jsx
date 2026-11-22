@@ -42,6 +42,7 @@ import {
     listDockerImages,
     listDockerNetworks,
     listDockerVolumes,
+    syncDockerSnapshot,
 } from "../dockerApi";
 
 const formatPorts = (portsArr) => {
@@ -235,9 +236,22 @@ export default function MachineDockerTable({
         setCreateResOpen(false);
     };
 
+    const handleRefresh = async () => {
+        try {
+            setLoading(true);
+            await syncDockerSnapshot(machineId);
+            await loadAll();
+            onNotify?.success("Docker state synced from VM.");
+        } catch (err) {
+            onNotify?.error(err?.response?.data?.message || "Failed to sync Docker state : " + err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <Stack spacing={2}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+            <Stack direction="column" spacing={1.5}>
                 <Tabs
                     value={subTab}
                     onChange={(_, v) => setSubTab(v)}
@@ -254,51 +268,53 @@ export default function MachineDockerTable({
                     <Tab label={`Networks (${networks.length})`} />
                 </Tabs>
 
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {subTab === 0 && (
-                        <>
-                            <Button size="small" variant="contained" disableElevation startIcon={<AddIcon fontSize="small" />} onClick={() => setRunOpen(true)} sx={primaryBtnSx}>
-                                Create Container
-                            </Button>
-                            <Button size="small" variant="outlined" startIcon={<CleaningServicesIcon fontSize="small" />} onClick={() => void runAction("prune_c", { action: "PRUNE_CONTAINERS" }, "Stopped containers pruned.")} sx={outlineBtnSx}>
-                                Prune Stopped
-                            </Button>
-                        </>
-                    )}
-                    {subTab === 1 && (
-                        <>
-                            <Button size="small" variant="contained" disableElevation startIcon={<AddIcon fontSize="small" />} onClick={() => setPullOpen(true)} sx={primaryBtnSx}>
-                                Pull Image
-                            </Button>
-                            <Button size="small" variant="outlined" startIcon={<CleaningServicesIcon fontSize="small" />} onClick={() => void runAction("prune_i", { action: "PRUNE_IMAGES", all: false }, "Dangling images pruned.")} sx={outlineBtnSx}>
-                                Prune Images
-                            </Button>
-                        </>
-                    )}
-                    {subTab === 2 && (
-                        <>
-                            <Button size="small" variant="contained" disableElevation startIcon={<AddIcon fontSize="small" />} onClick={() => { setCreateResType("VOLUME"); setCreateResOpen(true); }} sx={primaryBtnSx}>
-                                Create Volume
-                            </Button>
-                            <Button size="small" variant="outlined" startIcon={<CleaningServicesIcon fontSize="small" />} onClick={() => void runAction("prune_v", { action: "PRUNE_VOLUMES" }, "Unused volumes pruned.")} sx={outlineBtnSx}>
-                                Prune Volumes
-                            </Button>
-                        </>
-                    )}
-                    {subTab === 3 && (
-                        <>
-                            <Button size="small" variant="contained" disableElevation startIcon={<AddIcon fontSize="small" />} onClick={() => { setCreateResType("NETWORK"); setCreateResOpen(true); }} sx={primaryBtnSx}>
-                                Create Network
-                            </Button>
-                            <Button size="small" variant="outlined" startIcon={<CleaningServicesIcon fontSize="small" />} onClick={() => void runAction("prune_n", { action: "PRUNE_NETWORKS" }, "Unused networks pruned.")} sx={outlineBtnSx}>
-                                Prune Networks
-                            </Button>
-                        </>
-                    )}
-                    <Button size="small" variant="outlined" startIcon={<RefreshIcon fontSize="small" />} onClick={() => void loadAll()} disabled={loading} sx={outlineBtnSx}>
-                        Refresh
-                    </Button>
-                </Stack>
+                <Box sx={{ width: "100%", display: "flex", justifyContent: "flex-end" }}>
+                    <Stack direction="row" justifyContent="flex-end" alignItems="center" spacing={1} flexWrap="wrap">
+                        {subTab === 0 && (
+                            <>
+                                <Button size="small" variant="contained" disableElevation startIcon={<AddIcon fontSize="small" />} onClick={() => setRunOpen(true)} sx={primaryBtnSx}>
+                                    Create Container
+                                </Button>
+                                <Button size="small" variant="outlined" startIcon={<CleaningServicesIcon fontSize="small" />} onClick={() => void runAction("prune_c", { action: "PRUNE_CONTAINERS" }, "Stopped containers pruned.")} sx={outlineBtnSx}>
+                                    Prune Stopped
+                                </Button>
+                            </>
+                        )}
+                        {subTab === 1 && (
+                            <>
+                                <Button size="small" variant="contained" disableElevation startIcon={<AddIcon fontSize="small" />} onClick={() => setPullOpen(true)} sx={primaryBtnSx}>
+                                    Pull Image
+                                </Button>
+                                <Button size="small" variant="outlined" startIcon={<CleaningServicesIcon fontSize="small" />} onClick={() => void runAction("prune_i", { action: "PRUNE_IMAGES", all: false }, "Dangling images pruned.")} sx={outlineBtnSx}>
+                                    Prune Images
+                                </Button>
+                            </>
+                        )}
+                        {subTab === 2 && (
+                            <>
+                                <Button size="small" variant="contained" disableElevation startIcon={<AddIcon fontSize="small" />} onClick={() => { setCreateResType("VOLUME"); setCreateResOpen(true); }} sx={primaryBtnSx}>
+                                    Create Volume
+                                </Button>
+                                <Button size="small" variant="outlined" startIcon={<CleaningServicesIcon fontSize="small" />} onClick={() => void runAction("prune_v", { action: "PRUNE_VOLUMES" }, "Unused volumes pruned.")} sx={outlineBtnSx}>
+                                    Prune Volumes
+                                </Button>
+                            </>
+                        )}
+                        {subTab === 3 && (
+                            <>
+                                <Button size="small" variant="contained" disableElevation startIcon={<AddIcon fontSize="small" />} onClick={() => { setCreateResType("NETWORK"); setCreateResOpen(true); }} sx={primaryBtnSx}>
+                                    Create Network
+                                </Button>
+                                <Button size="small" variant="outlined" startIcon={<CleaningServicesIcon fontSize="small" />} onClick={() => void runAction("prune_n", { action: "PRUNE_NETWORKS" }, "Unused networks pruned.")} sx={outlineBtnSx}>
+                                    Prune Networks
+                                </Button>
+                            </>
+                        )}
+                        <Button size="small" variant="outlined" startIcon={<RefreshIcon fontSize="small" />} onClick={() => void handleRefresh()} disabled={loading} sx={outlineBtnSx}>
+                            Refresh
+                        </Button>
+                    </Stack>
+                </Box>
             </Stack>
 
             {loading ? (

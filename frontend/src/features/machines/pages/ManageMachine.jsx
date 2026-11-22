@@ -41,6 +41,8 @@ import SshConfigCard from "../components/SshConfigCard";
 import SftpConfigCard from "../components/SftpConfigCard";
 import MachinePortsTable from "../components/MachinePortsTable";
 import MachineDockerTable from "../components/MachineDockerTable";
+import MachineTerminalTab from "../components/MachineTerminalTab";
+
 
 const getTokens = (isDark) => ({
     canvasBg: isDark ? "#1D2125" : "#F7F8F9",
@@ -533,12 +535,13 @@ export default function ManageMachine() {
                             >
                                 <Tab label={`Ports (${portList.length})`} />
                                 <Tab label={`Docker (${dockerCount})`} />
+                                <Tab label="Terminal"/>
                             </Tabs>
 
                             <Divider sx={{ borderColor: tokens.border }} />
 
                             <Box sx={{ p: 2 }}>
-                                {tab === 0 ? (
+                                {tab === 0 && (
                                     <MachinePortsTable
                                         ports={portList}
                                         machineId={machine.machineId}
@@ -549,7 +552,8 @@ export default function ManageMachine() {
                                         inputSx={inputSx}
                                         primaryBtnSx={primaryBtnSx}
                                     />
-                                ) : (
+                                )}
+                                {tab === 1 && (
                                     <MachineDockerTable
                                         machineId={machine.machineId}
                                         onCountChange={setDockerCount}
@@ -560,7 +564,17 @@ export default function ManageMachine() {
                                         primaryBtnSx={primaryBtnSx}
                                     />
                                 )}
+                                {tab === 2 && (
+                                    <MachineTerminalTab
+                                        key={machine.machineId}
+                                        machineId={machine.machineId}
+                                        tokens={tokens}
+                                        outlineBtnSx={outlineBtnSx}
+                                        onNotify={notify}
+                                    />
+                                )}
                             </Box>
+
                         </Paper>
                     </Stack>
                 )}
