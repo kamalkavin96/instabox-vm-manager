@@ -24,11 +24,13 @@ import {
     Close,
     InfoOutlined,
 } from "@mui/icons-material";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 import PageHeader from "../../../components/common/PageHeader";
 import { getMachineList } from "../machinesApi";
 import useNotification from "../../../hooks/useNotification";
 import { useAppSelector } from "../../../hooks/redux";
+import { useNavigate } from "react-router-dom";
 
 const JIRA_ACCENTS = [
     {
@@ -113,6 +115,7 @@ export default function Machines() {
     const mode = useAppSelector((state) => state.ui?.theme);
     const isDark = (mode || theme.palette.mode) === "dark";
     const tokens = useMemo(() => getJiraTokens(isDark), [isDark]);
+    const navigate = useNavigate();
 
     const [machineList, setMachineList] = useState([]);
     const [columns, setColumns] = useState(3);
@@ -175,7 +178,7 @@ export default function Machines() {
         >
             <PageHeader
                 title="Machines"
-                subtitle="Compute instances, specifications, runtime flags, and synced metadata"
+                // subtitle="Compute instances, specifications, runtime flags, and synced metadata"
                 count={machineList.length}
                 countLabel="Total"
                 countIcon={Dns}
@@ -196,6 +199,7 @@ export default function Machines() {
                                 "& .MuiToggleButton-root": {
                                     minWidth: 34,
                                     borderRadius: "3px",
+                                    margin: "1px",
                                     borderColor: tokens.border,
                                     color: tokens.textSecondary,
                                     fontSize: "0.75rem",
@@ -635,8 +639,8 @@ export default function Machines() {
                                         </Typography>
                                         <Button
                                             size="small"
-                                            startIcon={<InfoOutlined sx={{ fontSize: 14 }} />}
-                                            onClick={() => setSelectedMachine(m)}
+                                            endIcon={<ArrowForwardIcon sx={{ fontSize: 14 }} />}
+                                            onClick={() => navigate(`/manage-machines/${m.id}`)}
                                             sx={{
                                                 borderRadius: "3px",
                                                 textTransform: "none",
@@ -648,7 +652,7 @@ export default function Machines() {
                                                 "&:hover": { bgcolor: tokens.brandBg },
                                             }}
                                         >
-                                            All columns
+                                            Manage
                                         </Button>
                                     </CardActions>
                                 </Card>
@@ -726,7 +730,7 @@ export default function Machines() {
             </Box>
 
             {/* Full Column Inspector Modal */}
-            <Modal
+            {/* <Modal
                 open={Boolean(selectedMachine)}
                 onClose={() => setSelectedMachine(null)}
             >
@@ -907,7 +911,7 @@ export default function Machines() {
                         )}
                     </Box>
                 </Box>
-            </Modal>
+            </Modal> */}
         </Box>
     );
 }

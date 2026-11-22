@@ -5,7 +5,11 @@ import com.kamalkavin96.backend.dto.request.ResumeMachineRequest;
 import com.kamalkavin96.backend.dto.request.StartMachineRequest;
 import com.kamalkavin96.backend.dto.request.StopMachineRequest;
 import com.kamalkavin96.backend.dto.response.BulkMachineResponse;
+import com.kamalkavin96.backend.entity.instabox.InstaboxMachine;
+import com.kamalkavin96.backend.service.instabox.InstaboxMachineService;
+import com.kamalkavin96.backend.service.instabox.InstaboxOrganizationService;
 
+import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.JsonNode;
 
 import org.springframework.stereotype.Service;
@@ -19,20 +23,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Service
+@RequiredArgsConstructor 
 public class InstaboxService {
 
     private static final int MAX_BULK_SIZE = 50;
 
     private final InstaboxApiClient instaboxApiClient;
     private final InstaboxCredentialService credentialService;
-
-    public InstaboxService(
-            InstaboxApiClient instaboxApiClient,
-            InstaboxCredentialService credentialService) {
-
-        this.instaboxApiClient = instaboxApiClient;
-        this.credentialService = credentialService;
-    }
+    private final InstaboxMachineService machineService;
+    private final InstaboxOrganizationService organizationService;
 
     public JsonNode getMachine(String machineId) {
 
@@ -146,7 +145,8 @@ public class InstaboxService {
 
     public JsonNode getMachinePorts(String machineId) {
 
-        String apiKey = credentialService.getActiveApiKey();
+        InstaboxMachine machine = machineService.getByMachineId(machineId);
+        String apiKey = organizationService.getApikeyByOrginizationId(machine.getOrganizationId());
         return instaboxApiClient.getMachinePorts(machineId, apiKey);
     }
 

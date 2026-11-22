@@ -11,6 +11,7 @@ import NotFound from "../components/common/NotFound";
 import RouteError from "../components/common/RouteError";
 import Organizations from "../features/organizations/pages/Organizations";
 import Machines from "../features/machines/pages/Machines";
+import ManageMachine from "../features/machines/pages/ManageMachine";
 import ManageMachinePreview from "../preview/ManageMachinePreview";
 
 function Placeholder({ title }) {
@@ -49,6 +50,11 @@ export const router = createBrowserRouter([
     {
         path: "/manage-machines",
         element: <Page><ManageMachinePreview></ManageMachinePreview></Page>,
+        errorElement: <RouteError />,
+    },
+    {
+        path: "/manage-machines/:id",
+        element: <Page><ManageMachine></ManageMachine></Page>,
         errorElement: <RouteError />,
     },
     {

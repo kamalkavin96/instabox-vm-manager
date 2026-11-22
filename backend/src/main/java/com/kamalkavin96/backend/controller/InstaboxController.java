@@ -18,7 +18,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
-@RequestMapping("/api/instabox")
+@RequestMapping("/api/v1/instabox/native")
 @Tag(name = "Instabox Controller", description = "Manage Instabox virtual machines.")
 public class InstaboxController {
 

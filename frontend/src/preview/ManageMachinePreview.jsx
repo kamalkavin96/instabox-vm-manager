@@ -38,6 +38,7 @@ import SyncIcon from "@mui/icons-material/Sync";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import { useAppSelector } from "../hooks/redux";
+import { useParams } from "react-router-dom";
 
 const MOCK_MACHINE = {
     id: 101,
@@ -169,6 +170,8 @@ const getTokens = (isDark) => ({
 });
 
 export default function ManageMachinePreview() {
+
+    const { id } = useParams();
     const theme = useTheme();
     const mode = useAppSelector((state) => state.ui?.theme);
     const isDark = (mode || theme.palette.mode) === "dark";

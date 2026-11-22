@@ -17,3 +17,9 @@ export const deleteMachineById = async (id) => {
     const response = await apiClient.delete(`${MACHINES_BASE_URL}/${id}`);
     return response.data;
 };
+
+export const getMachinePorts = async (machinId) => {
+    // /instabox/native/machines/m_abcdefghijklmnopqrstuvwxyz/ports'
+    const response = await apiClient.get(`/instabox/native/machines/${machinId}/ports`);
+    return response.data;
+}

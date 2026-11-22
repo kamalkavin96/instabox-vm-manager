@@ -24,6 +24,9 @@ public class InstaboxOrganization {
     @Column(name = "org_name", nullable = false)
     private String organizationName;
 
+    @Column(name = "api_key", nullable = false, length = 1000)
+    private String apiKey;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

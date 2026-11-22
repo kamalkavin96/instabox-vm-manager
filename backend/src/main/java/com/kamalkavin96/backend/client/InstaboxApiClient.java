@@ -121,7 +121,7 @@ public class InstaboxApiClient {
                 .uri("/machines/{id}/ports", machineId)
                 .header("Authorization", "Bearer " + apiKey)
                 .retrieve()
-                .body(JsonNode.class);
+                .body(JsonNode.class).get("ports");
     }
 
     public JsonNode getUsage(String apiKey, String orgId) {

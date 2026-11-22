@@ -62,6 +62,7 @@ public class InstaboxOrganizationService {
 
         InstaboxOrganization organization = new InstaboxOrganization();
         organization.setOrganizationId(organizationId);
+        organization.setApiKey(request.getApiKey());
         organization.setOrganizationName(request.getOrganizationName());
 
         InstaboxOrganization savedOrganization = repository.save(organization);
@@ -81,6 +82,14 @@ public class InstaboxOrganizationService {
     public InstaboxOrginizationResponse getById(Long id) {
         InstaboxOrganization organization = findEntityById(id);
         return toResponse(organization);
+    }
+
+    public String getApikeyByOrginizationId(String organizationId) {
+        InstaboxOrganization organization = repository.findByOrganizationId(organizationId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Organization not found: " + organizationId));
+        return organization.getApiKey();
     }
 
     public InstaboxOrginizationResponse getByOrganizationId(String organizationId) {
@@ -151,4 +160,5 @@ public class InstaboxOrganizationService {
         InstaboxOrganization saved = repository.save(organization);
         return toResponse(saved);
     }
+
 }
