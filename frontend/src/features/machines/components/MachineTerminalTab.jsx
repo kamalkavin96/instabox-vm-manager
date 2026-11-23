@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Box, Button, Stack, Typography } from "@mui/material";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { Box, Button, IconButton, Stack, Tooltip, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import OpenInFullIcon from "@mui/icons-material/OpenInFull";
+import CloseFullscreenIcon from "@mui/icons-material/CloseFullscreen";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { Terminal } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "xterm/css/xterm.css";
@@ -31,40 +34,57 @@ const HIGH_CONTRAST_DARK_THEME = {
 
 const buildWsUrl = (machineId) => {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${proto}//localhost:8080/ws/machines/${encodeURIComponent(String(machineId))}/terminal`;
+    const host = window.location.host;
+    return `${proto}//${host}/ws/machines/${encodeURIComponent(String(machineId))}/terminal`;
 };
 
-export default function MachineTerminalTab({
+const buildStandaloneTerminalUrl = (machineId) => {
+    const base = window.location.origin;
+    return `${base}/terminal/${encodeURIComponent(String(machineId))}`;
+};
+
+function MachineTerminalTabComponent({
     machineId,
     tokens,
     outlineBtnSx,
     onNotify,
     terminalHeight = 630,
 }) {
+    const wrapperRef = useRef(null);
     const containerRef = useRef(null);
     const termRef = useRef(null);
     const fitRef = useRef(null);
     const socketRef = useRef(null);
 
     const [status, setStatus] = useState("DISCONNECTED"); // CONNECTING | CONNECTED | DISCONNECTED
+    const [expanded, setExpanded] = useState(false);
+
+    const sendResize = useCallback((cols, rows) => {
+        if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+        const rect = containerRef.current?.getBoundingClientRect();
+        socketRef.current.send(
+            JSON.stringify({
+                type: "RESIZE",
+                cols,
+                rows,
+                width: rect ? Math.max(200, Math.round(rect.width)) : cols * 8,
+                height: rect ? Math.max(100, Math.round(rect.height)) : terminalHeight,
+            })
+        );
+    }, [terminalHeight]);
 
     const fitTerminal = useCallback(() => {
-        if (!fitRef.current || !termRef.current) return;
+        if (!fitRef.current || !termRef.current || !containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+
         try {
             fitRef.current.fit();
-            if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-                socketRef.current.send(
-                    JSON.stringify({
-                        type: "RESIZE",
-                        cols: termRef.current.cols,
-                        rows: termRef.current.rows,
-                    })
-                );
-            }
+            sendResize(termRef.current.cols, termRef.current.rows);
         } catch {
             // ignore fit errors when hidden/unmounted
         }
-    }, []);
+    }, [sendResize]);
 
     const connectTerminal = useCallback(() => {
         if (!machineId || !containerRef.current) return;
@@ -84,14 +104,13 @@ export default function MachineTerminalTab({
                 cursorStyle: "block",
                 fontFamily: "'JetBrains Mono', 'Fira Code', 'Ubuntu Mono', monospace",
                 fontSize: 13.5,
-                lineHeight: 1.25,
-                scrollback: 2000,
+                lineHeight: 1.2,
+                scrollback: 3000,
                 theme: HIGH_CONTRAST_DARK_THEME,
             });
             const fitAddon = new FitAddon();
             term.loadAddon(fitAddon);
             term.open(containerRef.current);
-            fitAddon.fit();
 
             term.onData((data) => {
                 if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
@@ -100,9 +119,7 @@ export default function MachineTerminalTab({
             });
 
             term.onResize(({ cols, rows }) => {
-                if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-                    socketRef.current.send(JSON.stringify({ type: "RESIZE", cols, rows }));
-                }
+                sendResize(cols, rows);
             });
 
             termRef.current = term;
@@ -117,7 +134,10 @@ export default function MachineTerminalTab({
 
         ws.onopen = () => {
             setStatus("CONNECTED");
-            fitTerminal();
+            requestAnimationFrame(() => {
+                fitTerminal();
+                termRef.current?.focus();
+            });
         };
 
         ws.onmessage = (event) => {
@@ -142,20 +162,20 @@ export default function MachineTerminalTab({
             setStatus("DISCONNECTED");
             onNotify?.error("Terminal WebSocket connection failed.");
         };
-    }, [machineId, onNotify, fitTerminal]);
+    }, [machineId, onNotify, fitTerminal, sendResize]);
 
     useEffect(() => {
         connectTerminal();
 
         const resizeObserver = new ResizeObserver(() => {
-            fitTerminal();
+            requestAnimationFrame(() => fitTerminal());
         });
         if (containerRef.current) {
             resizeObserver.observe(containerRef.current);
         }
 
         const handleWindowResize = () => {
-            fitTerminal();
+            requestAnimationFrame(() => fitTerminal());
         };
         window.addEventListener("resize", handleWindowResize);
 
@@ -174,11 +194,36 @@ export default function MachineTerminalTab({
                 termRef.current = null;
             }
         };
-    }, []);
+    }, [connectTerminal, fitTerminal]);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => fitTerminal(), 60);
+        return () => window.clearTimeout(timer);
+    }, [expanded, fitTerminal]);
+
+    useEffect(() => {
+        if (!expanded) return;
+        const onKeyDown = (e) => {
+            if (e.key === "Escape") {
+                setExpanded(false);
+            }
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [expanded]);
+
+    const handleOpenInNewTab = () => {
+        const url = buildStandaloneTerminalUrl(machineId);
+        window.open(url, "_blank", "noopener,noreferrer");
+    };
+
+    const handleToggleExpand = () => {
+        setExpanded((prev) => !prev);
+    };
 
     return (
-        <Stack spacing={1.5} sx={{ width: "100%" }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack spacing={1.25} sx={{ width: "100%" }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
                 <Typography
                     variant="caption"
                     sx={{
@@ -190,27 +235,74 @@ export default function MachineTerminalTab({
                     SSH PTY: {status}
                 </Typography>
 
-                <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<RefreshIcon fontSize="small" />}
-                    onClick={connectTerminal}
-                    sx={outlineBtnSx}
-                >
-                    Reconnect
-                </Button>
+                <Stack direction="row" spacing={0.75} alignItems="center">
+                    <Tooltip title="Open terminal in new browser tab">
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<OpenInNewIcon fontSize="small" />}
+                            onClick={handleOpenInNewTab}
+                            sx={outlineBtnSx}
+                        >
+                            New Tab
+                        </Button>
+                    </Tooltip>
+
+                    <Tooltip title={expanded ? "Exit full browser screen (Esc)" : "Expand to full browser screen"}>
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={
+                                expanded ? (
+                                    <CloseFullscreenIcon fontSize="small" />
+                                ) : (
+                                    <OpenInFullIcon fontSize="small" />
+                                )
+                            }
+                            onClick={handleToggleExpand}
+                            sx={outlineBtnSx}
+                        >
+                            {expanded ? "Exit Full Screen" : "Full Screen"}
+                        </Button>
+                    </Tooltip>
+
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<RefreshIcon fontSize="small" />}
+                        onClick={connectTerminal}
+                        sx={outlineBtnSx}
+                    >
+                        Reconnect
+                    </Button>
+                </Stack>
             </Stack>
 
             <Box
-                sx={{
-                    width: "100%",
-                    borderRadius: "6px",
-                    border: "1px solid #1E293B",
-                    overflow: "hidden",
-                    boxShadow: "0 10px 28px rgba(2, 6, 23, 0.55)",
-                }}
+                ref={wrapperRef}
+                sx={
+                    expanded
+                        ? {
+                              position: "fixed",
+                              inset: 0,
+                              zIndex: 1400,
+                              width: "100vw",
+                              height: "100vh",
+                              bgcolor: "#0B0F17",
+                              display: "flex",
+                              flexDirection: "column",
+                          }
+                        : {
+                              width: "100%",
+                              borderRadius: "6px",
+                              border: "1px solid #1E293B",
+                              overflow: "hidden",
+                              boxShadow: "0 10px 28px rgba(2, 6, 23, 0.55)",
+                              display: "flex",
+                              flexDirection: "column",
+                          }
+                }
             >
-                {/* Dark Terminal Window Header */}
                 <Box
                     sx={{
                         px: 1.5,
@@ -220,6 +312,7 @@ export default function MachineTerminalTab({
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
+                        flexShrink: 0,
                     }}
                 >
                     <Stack direction="row" spacing={0.85} alignItems="center">
@@ -240,18 +333,38 @@ export default function MachineTerminalTab({
                         instabox@{machineId}: ~
                     </Typography>
 
-                    <Box sx={{ width: 42 }} />
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                        <IconButton
+                            size="small"
+                            onClick={handleOpenInNewTab}
+                            title="Open in new tab"
+                            sx={{ color: "#94A3B8", p: 0.35 }}
+                        >
+                            <OpenInNewIcon sx={{ fontSize: 15 }} />
+                        </IconButton>
+                        <IconButton
+                            size="small"
+                            onClick={handleToggleExpand}
+                            title={expanded ? "Exit full screen (Esc)" : "Full browser screen"}
+                            sx={{ color: "#94A3B8", p: 0.35 }}
+                        >
+                            {expanded ? (
+                                <CloseFullscreenIcon sx={{ fontSize: 15 }} />
+                            ) : (
+                                <OpenInFullIcon sx={{ fontSize: 15 }} />
+                            )}
+                        </IconButton>
+                    </Stack>
                 </Box>
 
-                {/* xterm.js High-Contrast Dark Canvas */}
                 <Box
                     ref={containerRef}
                     onClick={() => termRef.current?.focus()}
                     sx={{
                         width: "100%",
-                        height: terminalHeight,
-                        minHeight: 480,
-                        // maxHeight: "calc(100vh - 240px)",
+                        flex: expanded ? 1 : "none",
+                        height: expanded ? "auto" : terminalHeight,
+                        minHeight: expanded ? 0 : 480,
                         bgcolor: "#0B0F17",
                         p: 1,
                         overflow: "hidden",
@@ -261,3 +374,18 @@ export default function MachineTerminalTab({
         </Stack>
     );
 }
+
+function areTerminalPropsEqual(prev, next) {
+    return (
+        prev.machineId === next.machineId &&
+        prev.terminalHeight === next.terminalHeight &&
+        prev.onNotify === next.onNotify &&
+        prev.tokens?.green?.text === next.tokens?.green?.text &&
+        prev.tokens?.textSecondary === next.tokens?.textSecondary &&
+        prev.outlineBtnSx === next.outlineBtnSx
+    );
+}
+
+const MachineTerminalTab = memo(MachineTerminalTabComponent, areTerminalPropsEqual);
+
+export default MachineTerminalTab;

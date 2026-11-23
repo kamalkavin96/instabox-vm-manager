@@ -13,6 +13,8 @@ import Organizations from "../features/organizations/pages/Organizations";
 import Machines from "../features/machines/pages/Machines";
 import ManageMachine from "../features/machines/pages/ManageMachine";
 import ManageMachinePreview from "../preview/ManageMachinePreview";
+import StandaloneTerminalPage from "../features/terminal/page/StandaloneTerminalPage";
+import FleetTerminalsPage from "../features/terminal/page/FleetTerminalsPage";
 
 function Placeholder({ title }) {
     return <h2>{title}</h2>;
@@ -58,13 +60,18 @@ export const router = createBrowserRouter([
         errorElement: <RouteError />,
     },
     {
+        path: "/terminal/:machineId",
+        element: <Page><StandaloneTerminalPage></StandaloneTerminalPage></Page>,
+        errorElement: <RouteError />,
+    },
+    {
         path: "/monitoring",
         element: <Page><Placeholder title="Monitoring" /></Page>,
         errorElement: <RouteError />,
     },
     {
         path: "/terminal",
-        element: <Page><Placeholder title="SSH Terminal" /></Page>,
+        element: <Page><FleetTerminalsPage/></Page>,
         errorElement: <RouteError />,
     },
     {

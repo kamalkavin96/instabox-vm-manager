@@ -9,7 +9,6 @@ import {
     Divider,
     Grid,
     IconButton,
-    InputAdornment,
     Paper,
     Stack,
     TextField,
@@ -26,9 +25,9 @@ const EMPTY_DRAFT = {
     host: "",
     port: 2222,
     username: "",
-    secretKey: "",
-    hasSecretKey: false,
 };
+
+const maskText = (val) => (val ? "***" : "-");
 
 export default function SshConfigCard({
     config,
@@ -45,16 +44,14 @@ export default function SshConfigCard({
     const isConfigured = Boolean(config);
     const [open, setOpen] = useState(false);
     const [draft, setDraft] = useState(config || defaultDraft || EMPTY_DRAFT);
-    const [showSecret, setShowSecret] = useState(false);
+    const [revealUsername, setRevealUsername] = useState(false);
 
     const handleOpen = () => {
         const source = config || defaultDraft || EMPTY_DRAFT;
         setDraft({
             ...EMPTY_DRAFT,
             ...source,
-            secretKey: "",
         });
-        setShowSecret(false);
         setOpen(true);
     };
 
@@ -87,11 +84,15 @@ export default function SshConfigCard({
         }
     };
 
+    const displayedUsername = revealUsername ? (config?.username || "-") : maskText(config?.username);
+    const cmdUsername = revealUsername ? (config?.username || "***") : "***";
+
     const sshCommand = useMemo(() => {
         if (!config) return "";
-        if (config.command) return config.command;
-        return `ssh -p ${config.port || 2222} ${config.username}@${config.host}`;
-    }, [config]);
+        const port = config.port || 2222;
+        const host = config.host || "";
+        return `ssh -p ${port} ${cmdUsername}@${host}`;
+    }, [config, cmdUsername]);
 
     return (
         <>
@@ -113,18 +114,34 @@ export default function SshConfigCard({
                     alignItems="center"
                     spacing={1}
                     flexWrap="wrap"
-                    sx={{ px: 2, py: 1.25, bgcolor: tokens.subtleSurface }}
+                    sx={{ px: 1.75, py: 1, bgcolor: tokens.subtleSurface }}
                 >
-                    <Stack direction="row" spacing={1} alignItems="center">
+                    <Stack direction="row" spacing={0.75} alignItems="center">
                         <KeyIcon fontSize="small" sx={{ color: tokens.brandMain }} />
                         <Typography variant="subtitle2" sx={{ fontWeight: 700, color: tokens.textPrimary }}>
                             InstaBox SSH
                         </Typography>
                     </Stack>
-
-                    <Stack direction="row" spacing={0.75}>
+                    <Box sx={{ flexGrow: 1 }} />
+                    <Stack direction="row" spacing={0.75} alignItems="center">
                         {isConfigured ? (
                             <>
+                                <IconButton
+                                    size="small"
+                                    title={revealUsername ? "Hide username & command user" : "Show username & command user"}
+                                    onClick={() => setRevealUsername((v) => !v)}
+                                    sx={{
+                                        border: `1px solid ${tokens.border}`,
+                                        borderRadius: "3px",
+                                        color: tokens.textSecondary,
+                                    }}
+                                >
+                                    {revealUsername ? (
+                                        <VisibilityOffIcon fontSize="small" />
+                                    ) : (
+                                        <VisibilityIcon fontSize="small" />
+                                    )}
+                                </IconButton>
                                 <Button
                                     size="small"
                                     variant="outlined"
@@ -166,38 +183,38 @@ export default function SshConfigCard({
                     <Stack
                         alignItems="center"
                         justifyContent="center"
-                        spacing={1}
-                        sx={{ p: 3.5, flex: 1, textAlign: "center" }}
+                        spacing={0.75}
+                        sx={{ p: 2.25, flex: 1, textAlign: "center" }}
                     >
                         <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.textPrimary }}>
                             No SSH configuration found
                         </Typography>
-                        <Typography variant="caption" sx={{ color: tokens.textSecondary, maxWidth: 320 }}>
-                            Add host, port, username, and secret key for this machine.
+                        <Typography variant="caption" sx={{ color: tokens.textSecondary, maxWidth: 300 }}>
+                            Add host, port, and username for this machine.
                         </Typography>
                         <Button
                             size="small"
                             variant="outlined"
                             startIcon={<AddIcon fontSize="small" />}
                             onClick={handleOpen}
-                            sx={{ ...outlineBtnSx, mt: 0.5 }}
+                            sx={{ ...outlineBtnSx, mt: 0.25 }}
                         >
                             Add SSH Config
                         </Button>
                     </Stack>
                 ) : (
-                    <Box sx={{ p: 2 }}>
-                        <Grid container spacing={1.5}>
+                    <Box sx={{ p: 1.5 }}>
+                        <Grid container spacing={1}>
                             {[
                                 ["HOST", config.host],
                                 ["PORT", String(config.port || 2222)],
-                                ["USERNAME", config.username],
-                                ["SECRET KEY", config.hasSecretKey ? "Stored (hidden)" : "Not set"],
+                                ["USERNAME", displayedUsername],
                             ].map(([label, val]) => (
-                                <Grid key={label} size={{ xs: 12, sm: 6 }}>
+                                <Grid key={label} size={{ xs: 12, sm: label === "HOST" ? 5 : label === "PORT" ? 3 : 4 }}>
                                     <Box
                                         sx={{
-                                            p: 1,
+                                            px: 1,
+                                            py: 0.75,
                                             borderRadius: "3px",
                                             bgcolor: tokens.subtleSurface,
                                             border: `1px solid ${tokens.border}`,
@@ -205,7 +222,12 @@ export default function SshConfigCard({
                                     >
                                         <Typography
                                             variant="caption"
-                                            sx={{ color: tokens.textSubtle, fontWeight: 700, display: "block" }}
+                                            sx={{
+                                                color: tokens.textSubtle,
+                                                fontWeight: 700,
+                                                fontSize: "0.65rem",
+                                                display: "block",
+                                            }}
                                         >
                                             {label}
                                         </Typography>
@@ -214,7 +236,7 @@ export default function SshConfigCard({
                                             title={val}
                                             sx={{
                                                 fontFamily: "monospace",
-                                                fontSize: "0.78rem",
+                                                fontSize: "0.75rem",
                                                 fontWeight: 600,
                                                 color: tokens.textPrimary,
                                             }}
@@ -229,15 +251,16 @@ export default function SshConfigCard({
                         <Box
                             component="pre"
                             sx={{
-                                mt: 1.5,
+                                mt: 1,
                                 mb: 0,
-                                p: 1.25,
+                                px: 1.25,
+                                py: 0.85,
                                 borderRadius: "3px",
                                 bgcolor: tokens.subtleSurface,
                                 border: `1px solid ${tokens.border}`,
                                 color: tokens.textPrimary,
                                 fontFamily: "monospace",
-                                fontSize: "0.75rem",
+                                fontSize: "0.73rem",
                                 overflowX: "auto",
                             }}
                         >
@@ -267,15 +290,13 @@ export default function SshConfigCard({
                         sx={{
                             fontWeight: 700,
                             borderBottom: `1px solid ${tokens.border}`,
-                            position: "relative",
-                            zIndex: 1,
                         }}
                     >
                         {isConfigured ? "Edit InstaBox SSH Config" : "Add InstaBox SSH Config"}
                     </DialogTitle>
 
-                    <DialogContent dividers sx={{ pt: 3, pb: 2.5, borderColor: tokens.border }}>
-                        <Stack spacing={2} sx={{ pt: 0.5 }}>
+                    <DialogContent dividers sx={{ pt: 2.5, pb: 2, borderColor: tokens.border }}>
+                        <Stack spacing={1.75}>
                             <Grid container spacing={1.5}>
                                 <Grid size={{ xs: 12, sm: 9 }}>
                                     <TextField
@@ -311,40 +332,6 @@ export default function SshConfigCard({
                                 value={draft.username || ""}
                                 onChange={(e) => setDraft((p) => ({ ...p, username: e.target.value }))}
                                 sx={inputSx}
-                            />
-
-                            <TextField
-                                size="small"
-                                fullWidth
-                                multiline={showSecret}
-                                minRows={showSecret ? 3 : 1}
-                                type={showSecret ? "text" : "password"}
-                                label="Secret Key"
-                                placeholder={
-                                    draft.hasSecretKey
-                                        ? "Stored on server — leave blank to keep unchanged"
-                                        : "Enter secret key"
-                                }
-                                value={draft.secretKey || ""}
-                                onChange={(e) => setDraft((p) => ({ ...p, secretKey: e.target.value }))}
-                                sx={inputSx}
-                                InputProps={{
-                                    endAdornment: (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => setShowSecret((v) => !v)}
-                                                sx={{ color: tokens.textSecondary }}
-                                            >
-                                                {showSecret ? (
-                                                    <VisibilityOffIcon fontSize="small" />
-                                                ) : (
-                                                    <VisibilityIcon fontSize="small" />
-                                                )}
-                                            </IconButton>
-                                        </InputAdornment>
-                                    ),
-                                }}
                             />
                         </Stack>
                     </DialogContent>
