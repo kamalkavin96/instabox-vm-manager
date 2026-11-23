@@ -15,6 +15,7 @@ import ManageMachine from "../features/machines/pages/ManageMachine";
 import ManageMachinePreview from "../preview/ManageMachinePreview";
 import StandaloneTerminalPage from "../features/terminal/page/StandaloneTerminalPage";
 import FleetTerminalsPage from "../features/terminal/page/FleetTerminalsPage";
+import FleetSftpPage from "../features/sftm/page/FleetSftpPage";
 
 function Placeholder({ title }) {
     return <h2>{title}</h2>;
@@ -76,7 +77,7 @@ export const router = createBrowserRouter([
     },
     {
         path: "/files",
-        element: <Page><Placeholder title="Files" /></Page>,
+        element: <Page><FleetSftpPage></FleetSftpPage></Page>,
         errorElement: <RouteError />,
     },
     {
