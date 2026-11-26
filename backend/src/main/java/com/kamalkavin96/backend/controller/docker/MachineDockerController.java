@@ -5,6 +5,10 @@ import com.kamalkavin96.backend.dto.docker.DockerOperationRequest;
 import com.kamalkavin96.backend.entity.docker.MachineDockerSnapshot;
 import com.kamalkavin96.backend.service.docker.DockerSnapshotSyncService;
 import com.kamalkavin96.backend.service.docker.DockerSocketService;
+
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,6 +28,8 @@ public class MachineDockerController {
 
     private final DockerSocketService dockerService;
     private final DockerSnapshotSyncService snapshotSyncService;
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public MachineDockerController(
             DockerSocketService dockerService,
@@ -191,4 +197,24 @@ public class MachineDockerController {
         snapshotSyncService.syncMachine(machineId);
         return ResponseEntity.ok(output);
     }
+
+    @GetMapping(value = "/container-counts", produces = MediaType.APPLICATION_JSON_VALUE)
+public ResponseEntity<Map<String, Integer>> getContainerCount(@PathVariable String machineId) {
+    var snapshot = snapshotSyncService.getOrEmptySnapshot(machineId);
+    String rawJson = snapshot != null ? snapshot.getContainersJson() : null;
+
+    if (rawJson == null || rawJson.isBlank()) {
+        return ResponseEntity.ok(Map.of("count", 0));
+    }
+
+    try {
+        JsonNode root = OBJECT_MAPPER.readTree(rawJson);
+        if (root != null && root.isArray()) {
+            return ResponseEntity.ok(Map.of("count", root.size()));
+        }
+    } catch (Exception _) {
+    }
+
+    return ResponseEntity.ok(Map.of("count", 0));
+}
 }

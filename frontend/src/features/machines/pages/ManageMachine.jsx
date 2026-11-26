@@ -36,6 +36,9 @@ import {
     updateInstaBoxSftpConfig,
     updateInstaBoxSshConfig,
 } from "../connectionConfigApi";
+
+import { docketContainerCount } from "../dockerApi";
+
 import useNotification from "../../../hooks/useNotification";
 import SshConfigCard from "../components/SshConfigCard";
 import SftpConfigCard from "../components/SftpConfigCard";
@@ -154,6 +157,9 @@ export default function ManageMachine() {
                 ]);
 
                 setPorts(portRes.status === "fulfilled" ? normalizePorts(portRes.value, mId) : []);
+
+
+                setDockerCount(await docketContainerCount(data?.machineId).then((v)=> v.count));
 
                 setSshConfig(
                     sshRes.status === "fulfilled" && sshRes.value

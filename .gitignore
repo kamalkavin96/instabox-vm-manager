@@ -168,3 +168,5 @@ docker-compose.override.yml
 *.generated.*
 *.min.js.map
 *.min.css.map
+
+.vscode

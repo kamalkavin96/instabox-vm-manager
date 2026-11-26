@@ -62,3 +62,8 @@ export const syncDockerSnapshot = async (machineId) => {
     const res = await apiClient.post(`/machines/${enc(machineId)}/docker/sync`);
     return res.data;
 };
+
+export const docketContainerCount = async (machineId) => {
+    const res = await apiClient.get(`/machines/${enc(machineId)}/docker/container-counts?all=true`);
+    return res.data;
+};
